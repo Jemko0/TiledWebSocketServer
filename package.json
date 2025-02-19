@@ -1,0 +1,7 @@
+{
+    "name": "tiled_server",
+    "version": "0.0.1",
+    "description": "tiled server",
+    "type": "commonjs",
+    "dependencies": {}
+  }
