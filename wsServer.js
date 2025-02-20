@@ -4,6 +4,11 @@ let lastID = 0;
 
 let connections = new Map();
 
+let worldSeed = 321;
+let worldTime = 11;
+let maxTilesX = 256;
+let maxTilesY = 256;
+
 server.on('connection', (player) =>
 {
     const id = GetPlayerID();
@@ -28,13 +33,32 @@ server.on('connection', (player) =>
     });
 
     
-
+    //MESSAGES FROM CLIENT TO SERVER
     player.on('message', (data) =>
     {
         let packet = JSON.parse(data);
-        Log('player with id ' + packet.data.id + ' wants to spawn');
+
+        if(packet.type === 'requestWorld')
+        {
+            let worldPacket =
+            {
+                type: 'world',
+                data:
+                {
+                    seed: worldSeed,
+                    time: worldTime,
+                    maxTilesX: maxTilesX,
+                    maxTilesY: maxTilesY
+                }
+            };
+
+            SendPacket(player, worldPacket);
+        }
+
         if(packet.type === 'spawn')
         {
+            Log('player with id ' + packet.data.id + ' wants to spawn');
+
             let spawnPacket =
             {
                 type: 'spawn',
