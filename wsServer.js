@@ -8,6 +8,7 @@ let lastID = 0;
 
 let connections = new Map();
 let playerPositions = [];
+let tileChanges = {};
 let tps = 5;
 let worldSeed = 321;
 let worldTime = 7.0;
@@ -81,6 +82,51 @@ server.on('connection', (player) =>
             MulticastPacket(spawnPacket, -1);
         }
 
+        if(packet.type === 'requestWorldChanges')
+        {
+            Log('player with id ' + packet.data.id + ' requesting World Changes');
+            let changes = [];
+
+            for (let tx in tileChanges) {
+                for (let ty in tileChanges[tx]) {
+                    changes.push({
+                        x: parseInt(tx),
+                        y: parseInt(ty),
+                        tileType: tileChanges[tx][ty]
+                    });
+                }
+            }
+        
+            let worldChangesPacket = {
+                type: 'worldChanges',
+                data: {
+                    objectArray: changes
+                }
+            };
+
+            SendPacket(player, worldChangesPacket);
+        }
+
+        if(packet.type === 'singleTile')
+        {
+            let newTilePacket =
+            {
+                maxTilesX: packet.data.x,
+                maxTilesY: packet.data.y,
+                tileType: packet.data.tileType
+            }
+
+            
+            if (!tileChanges[packet.data.x])
+            {
+                tileChanges[packet.data.x] = {};
+            }
+
+            tileChanges[packet.data.x][packet.data.y] = packet.data.tileType;
+            console.log("type at loc after change: " + tileChanges[packet.data.x][packet.data.y]);
+            MulticastPacket({type: 'newTile', data: newTilePacket}, packet.data.id);
+        }
+
         //test with other ppl
         if(packet.type === 'requestOthers')
         {
@@ -108,7 +154,7 @@ server.on('connection', (player) =>
         {
             playerPositions[packet.data.id] = {x: packet.data.x, y: packet.data.y};
             
-            console.log("CLIENT UPDATE ID: " + playerPositions[packet.data.id].x);
+            //console.log("CLIENT UPDATE ID: " + playerPositions[packet.data.id].x);
 
             otherPlayerPacket =
             {
@@ -122,19 +168,23 @@ server.on('connection', (player) =>
                     velY: packet.data.velY
                 }
             }
-            MulticastPacket(otherPlayerPacket, packet.data.id);
+            MulticastPacket(otherPlayerPacket, packet.data.id, true);
         }
     });
 
 });
 
-function SendPacket(client, packet)
+function SendPacket(client, packet, suppressLog = false)
 {
-    Log('Sending packet: ' + JSON.stringify(packet));
+    if(!suppressLog)
+    {
+        Log('Sending packet: ' + JSON.stringify(packet));
+    }
+    
     client.send(JSON.stringify(packet));
 }
 
-function MulticastPacket(packet, ignoreClientID = -1)
+function MulticastPacket(packet, ignoreClientID = -1, suppressLog = false)
 {    
     connections.forEach((client, id) =>
     {
@@ -145,8 +195,13 @@ function MulticastPacket(packet, ignoreClientID = -1)
                 return;
             }
         }
+
+        if(!suppressLog)
+        {
         Log('Multicasting packet to all connections');
-        SendPacket(client, packet);
+        }
+
+        SendPacket(client, packet, suppressLog);
     });
 }
 
@@ -166,7 +221,7 @@ function UpdateWorld()
 {
     worldTime += worldTimeSpeed;
     worldTime %= 24.0;
-    MulticastPacket({type: 'worldTime', data: {x: worldTime, y: worldTimeSpeed}});
+    MulticastPacket({type: 'worldTime', data: {x: worldTime, y: worldTimeSpeed}}, -1, true);
 }
 
 Log('WebSocket server is running on ws://' + server.options.host + ':' + server.options.port);
